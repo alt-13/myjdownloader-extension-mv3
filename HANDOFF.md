@@ -4,8 +4,46 @@ Start every session here, then `CLAUDE.md` for the branching, versioning, landmi
 rules that do not change with the week. Moved out of `CLAUDE.md` on 2026-09-02 so that dated state
 stops loading at every session launch.
 
-Newest block first. Every block below the 2026-10-03 one is kept for history and is superseded by
+Newest block first. Every block below the 2026-10-13 one is kept for history and is superseded by
 it; the open items are restated in "Known-unresolved" at the bottom, which is the list to work from.
+
+## Where things stand (2026-10-13)
+
+**Resolve in Browser, built on `feature/resolve-in-browser`, being released as v2026.10.2 today** (dev
+to master promotion, then the tag). Suite on the branch: 22 suites, 388 tests. No manifest change.
+
+What it does: for a file host with a shipped resolver, the add-links panel asks `background.js`
+(`resolve-links`) to turn the file page into the direct download link before the send. The first
+resolver is FileDitch (fileditchfiles.me and fileditchvids.st, host-only match). Background tries a
+credentialed fetch first, then an inactive tab (`chrome.tabs.create` with `active:false`, and
+`scripting.executeScript` reads the DOM). The tab path polls every 500 ms because the host injects
+the `<source src>` after load. Limit is 25 s, or 150 s once a Cloudflare challenge is shown and the
+tab is brought forward. Results are cached in `chrome.storage.session` for up to 2.5 h, and only one
+tab is open at a time.
+
+Wrapped links are unwrapped first. Targets embedded in the query (percent or base64, for example
+`simpcity.cr/redirect/?to=<base64url>`) are decoded statically in `scripts/resolvers/hostResolvers.js`
+(`resolveTarget`, `decodeEmbeddedUrls`, `looksLikeInterstitial`). Otherwise one fetch of the wrapper
+follows redirects and the HTML is scanned. No tab is ever opened for an unknown link. On failure the
+original link is sent, the panel stays open, and an amber warning names the reason code.
+
+Setting: "Resolve in Browser" checkbox in Settings under Add Links Dialog / default values, default
+on, key `RESOLVE_IN_BROWSER`.
+
+**Live verified 2026-10-13 in Chrome** against a SimpCity-wrapped fileditchvids.st link: JDownloader
+received the direct `blehpooffileditchvidsstuff.org` link. Two earlier live runs failed and were
+fixed: the matcher required a `/beta10/` path (the .st host uses `/balpha28/`, so the matcher is now
+host only), and the tab path read the DOM once at load complete (it now polls).
+
+**Direct link token:** base64url of `<unix seconds>:<signature>:<server>/<bucket>/<id>/<filename>`.
+The extractor accepts only the candidate whose last two path segments equal the page's. The
+timestamp is the expiry, about 3 h.
+
+**Contribution path:** CONTRIBUTING "Adding a host resolver", the issue form
+`.github/ISSUE_TEMPLATE/host-resolver-request.yml`, and a pinned "Supported hosts" issue to be
+posted with the release. Layout: `scripts/resolvers/hostResolvers.js` is the registry, one file per
+host in `scripts/resolvers/hosts/<id>.js`, fixtures and runtime tests in
+`scripts/resolvers/__tests__/` (a sanitized FileDitch page and a Cloudflare challenge page).
 
 ## Where things stand (2026-10-03)
 
@@ -166,6 +204,9 @@ review; both are compliant but scrutiny magnets.
 
 ## Test counts as last recorded
 
+2026-10-13: 388 tests / 22 suites on `feature/resolve-in-browser`, run locally before the v2026.10.2
+promotion.
+
 2026-10-03: master and dev have identical content at the release; 297 tests / 17 suites as last
 recorded on 2026-09-11 (not re-run locally; CI green on master `e740632`).
 
@@ -188,5 +229,11 @@ grows as PRs merge, so treat these as a snapshot and run `npx jest` for the real
 - **Update notifier and clipboard observer: released, never watched in a real browser.** The notifier
   logic is proven against the live API via `npm run test:live`, but the badge, the settings banner, and
   storage surviving a service-worker restart have not been watched in Chrome.
+- **Resolve in Browser: the fetch fast path has never been seen to succeed against Cloudflare.** Every
+  live run fell through to the tab.
+- **Resolve in Browser: the resolve tab is inactive.** Whether a host's script injects the link in a
+  background tab is verified for FileDitch only; each new resolver needs its own live check.
+- **Resolve in Browser: the shared "no-reply" rejection path and the amber warning were watched once.**
+- **Web Store MV3 note unchanged** (remote-code policy and the MAIN-world script, see the 2026-10-03 block).
 - **Pre-existing dead branch:** the `webinterfaceEnhancer.js` 'captcha-done' branch is unreachable
   (identical condition above it). Not fixed.
